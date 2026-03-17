@@ -144,14 +144,36 @@ def extract_tool_invocations(text: str) -> List[Tuple[str, Dict[str, Any]]]:
             continue
 
         try:
-            after = line[len("tool:"):].strip()
-            name, rest = after.split("(", 1)
+            content = line[len("tool:"):].strip()
 
-            if not rest.endswith(")"):
+            # CASO 1: formato corretto
+            if "(" in content:
+                name, rest = content.split("(", 1)
+                if rest.endswith(")"):
+                    args = json.loads(rest[:-1].strip())
+                    invocations.append((name.strip(), args))
+                    continue
+
+            # CASO 2: formato sbagliato tipo {"function_name": ..., "args": ...}
+            parsed = json.loads(content)
+
+            name = parsed.get("function_name")
+            args_list = parsed.get("args", [])
+
+            if name == "edit_file":
+                args = {
+                    "path": args_list[0],
+                    "old_str": args_list[1],
+                    "new_str": args_list[2]
+                }
+            elif name == "read_file":
+                args = {"filename": args_list[0]}
+            elif name == "list_files":
+                args = {"path": args_list[0]}
+            else:
                 continue
 
-            args = json.loads(rest[:-1].strip())
-            invocations.append((name.strip(), args))
+            invocations.append((name, args))
 
         except Exception:
             continue
