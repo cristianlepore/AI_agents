@@ -23,6 +23,9 @@ RESET_COLOR = "\u001b[0m"
 # UTILS
 # ======================
 
+# Risolve un percorso relativo in un percorso assoluto.
+# Necessario per gestire percorsi forniti dall'utente in modo coerente,
+# garantendo che tutti i percorsi usati dal tool siano assoluti.
 def resolve_abs_path(path_str: str) -> Path:
     path = Path(path_str).expanduser()
     if not path.is_absolute():
@@ -33,6 +36,9 @@ def resolve_abs_path(path_str: str) -> Path:
 # TOOLS
 # ======================
 
+# Legge il contenuto completo di un file indicato dall'utente.
+# Serve come tool per permettere all'agente di accedere a file arbitrari
+# richiesti durante l'esecuzione di un task.
 def read_file_tool(filename: str) -> Dict[str, Any]:
     """
     Gets the full content of a file provided by the user.
@@ -47,6 +53,9 @@ def read_file_tool(filename: str) -> Dict[str, Any]:
         "content": content
     }
 
+# Elenca i file presenti in una directory.
+# Utilizzato dal tool registry per fornire all'agente la capacità di
+# esplorare il filesystem e presentare al modello la struttura dei file.
 def list_files_tool(path: str) -> Dict[str, Any]:
     """
     Lists files in a directory.
@@ -65,6 +74,9 @@ def list_files_tool(path: str) -> Dict[str, Any]:
         "files": all_files
     }
 
+# Modifica (o crea) un file sostituendo una stringa esistente con una nuova.
+# Questo è il cuore del tool "edit_file" che permette all'agente di
+# apportare modifiche puntuali ai file del progetto.
 def edit_file_tool(path: str, old_str: str, new_str: str) -> Dict[str, Any]:
     """
     Replace old_str with new_str. If old_str is empty, create file.
@@ -99,6 +111,9 @@ TOOL_REGISTRY = {
 # PROMPT
 # ======================
 
+# Genera una rappresentazione testuale di un tool (nome, descrizione, firma).
+# Utilizzata per costruire il prompt di sistema che informa il modello
+# sui tool disponibili.
 def get_tool_str_representation(tool_name: str) -> str:
     tool = TOOL_REGISTRY[tool_name]
     return f"""
@@ -122,6 +137,9 @@ After tool_result(...), continue.
 If no tool needed, respond normally.
 """
 
+# Costruisce il prompt di sistema completo includendo la descrizione
+# di tutti i tool registrati. Questo prompt è inviato al modello LLM
+# all'inizio della sessione per fornire il contesto necessario.
 def get_full_system_prompt():
     tool_str_repr = ""
     for tool_name in TOOL_REGISTRY:
@@ -134,6 +152,9 @@ def get_full_system_prompt():
 # PARSER
 # ======================
 
+# Analizza la risposta dell'LLM per estrarre le invocazioni di tool.
+# Permette al ciclo dell'agente di capire quali tool devono essere
+# eseguiti in base all'output del modello.
 def extract_tool_invocations(text: str) -> List[Tuple[str, Dict[str, Any]]]:
     invocations = []
 
@@ -184,6 +205,9 @@ def extract_tool_invocations(text: str) -> List[Tuple[str, Dict[str, Any]]]:
 # LLM CALL
 # ======================
 
+# Esegue una chiamata al modello LLM (Groq) con la conversazione corrente.
+# Restituisce la risposta testuale del modello, che può contenere
+# invocazioni di tool o messaggi di output.
 def execute_llm_call(conversation: List[Dict[str, str]]):
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
@@ -197,6 +221,10 @@ def execute_llm_call(conversation: List[Dict[str, str]]):
 # AGENT LOOP
 # ======================
 
+# Avvia il loop principale dell'agente di coding.
+# Gestisce l'interazione con l'utente, invoca l'LLM, interpreta le
+# invocazioni di tool e aggiorna la conversazione finché l'utente
+# non termina l'esecuzione.
 def run_coding_agent_loop():
     print(get_full_system_prompt())
 
