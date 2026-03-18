@@ -1,6 +1,8 @@
 import inspect
 import json
 import os
+# Per la rilevazione dell'encoding dei file, utile per il tool di lettura dei file che deve gestire file con encoding sconosciuti
+import chardet
 
 from groq import Groq
 from dotenv import load_dotenv
@@ -11,12 +13,16 @@ from typing import Any, Dict, List, Tuple
 # SETUP
 # ======================
 
+# Carica le variabili d'ambiente dal file .env, in particolare la chiave API per Groq.
 load_dotenv()
-
+# Inizializza il client Groq con la chiave API ottenuta dalle variabili d'ambiente.
 client = Groq(api_key=os.environ["GROQ_API_KEY"])
 
+# Definisce i colori ANSI per differenziare visivamente i messaggi dell'utente e dell'assistente.
 YOU_COLOR = "\u001b[94m"
+# Colore giallo
 ASSISTANT_COLOR = "\u001b[93m"
+# Colore di reset per tornare al colore predefinito dopo i messaggi colorati.
 RESET_COLOR = "\u001b[0m"
 
 # ======================
@@ -26,8 +32,10 @@ RESET_COLOR = "\u001b[0m"
 # Risolve un percorso relativo in un percorso assoluto.
 # Necessario per gestire percorsi forniti dall'utente in modo coerente,
 # garantendo che tutti i percorsi usati dal tool siano assoluti.
+# Se il percorso è già assoluto, viene restituito così com'è. Se è relativo, viene risolto rispetto alla directory di lavoro corrente.
 def resolve_abs_path(path_str: str) -> Path:
     path = Path(path_str).expanduser()
+    # Se il percorso non è assoluto, risolvi rispetto alla directory di lavoro corrente.
     if not path.is_absolute():
         path = (Path.cwd() / path).resolve()
     return path
@@ -45,11 +53,31 @@ def read_file_tool(filename: str) -> Dict[str, Any]:
     """
     full_path = resolve_abs_path(filename)
 
-    with open(str(full_path), "r") as f:
-        content = f.read()
+    if not full_path.is_file():
+        return {"error": "File not found or is a directory"}
+
+    try:
+        # Legge il file in modalità binaria
+        with open(full_path, "rb") as f:
+            raw_data = f.read()
+
+        # Rileva encoding
+        detected = chardet.detect(raw_data)
+        encoding = detected["encoding"]
+
+        # Fallback se non rilevato
+        if encoding is None:
+            encoding = "utf-8"
+
+        # Decodifica il contenuto del file usando l'encoding rilevato, sostituendo i caratteri non decodificabili con un placeholder
+        content = raw_data.decode(encoding, errors="replace")
+
+    except Exception as e:
+        return {"error": str(e)}
 
     return {
         "file_path": str(full_path),
+        "encoding_used": encoding,
         "content": content
     }
 
@@ -62,6 +90,7 @@ def list_files_tool(path: str) -> Dict[str, Any]:
     """
     full_path = resolve_abs_path(path)
 
+    # Se il percorso non è una directory, restituisce un errore. 
     all_files = []
     for item in full_path.iterdir():
         all_files.append({
@@ -83,10 +112,12 @@ def edit_file_tool(path: str, old_str: str, new_str: str) -> Dict[str, Any]:
     """
     full_path = resolve_abs_path(path)
 
+    # Se old_str è vuota, si assume che il file debba essere creato con il contenuto di new_str. Se il file esiste già, verrà sovrascritto.
     if old_str == "":
         full_path.write_text(new_str, encoding="utf-8")
         return {"path": str(full_path), "action": "created_file"}
 
+    # Se il file non esiste, restituisce un errore. Se esiste, legge il contenuto, sostituisce la prima occorrenza di old_str con new_str e riscrive il file.
     original = full_path.read_text(encoding="utf-8")
 
     if original.find(old_str) == -1:
@@ -101,6 +132,7 @@ def edit_file_tool(path: str, old_str: str, new_str: str) -> Dict[str, Any]:
 # TOOL REGISTRY
 # ======================
 
+# Registra i tool disponibili in un dizionario, associando il nome del tool alla funzione che lo implementa. Questo registro è utilizzato per costruire il prompt di sistema e per eseguire i tool quando vengono invocati dall'LLM.
 TOOL_REGISTRY = {
     "read_file": read_file_tool,
     "list_files": list_files_tool,
@@ -155,9 +187,11 @@ def get_full_system_prompt():
 # Analizza la risposta dell'LLM per estrarre le invocazioni di tool.
 # Permette al ciclo dell'agente di capire quali tool devono essere
 # eseguiti in base all'output del modello.
+# Supporta sia il formato corretto "tool: TOOL_NAME({JSON_ARGS})" che un formato alternativo JSON più flessibile.
 def extract_tool_invocations(text: str) -> List[Tuple[str, Dict[str, Any]]]:
     invocations = []
 
+    # Analizza ogni riga della risposta per cercare invocazioni di tool. Se una riga inizia con "tool:", tenta di estrarre il nome del tool e i suoi argomenti.
     for raw_line in text.splitlines():
         line = raw_line.strip()
 
@@ -210,7 +244,7 @@ def extract_tool_invocations(text: str) -> List[Tuple[str, Dict[str, Any]]]:
 # invocazioni di tool o messaggi di output.
 def execute_llm_call(conversation: List[Dict[str, str]]):
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-120b",
         messages=conversation,
         temperature=0.2
     )
