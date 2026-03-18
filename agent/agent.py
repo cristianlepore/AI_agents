@@ -1,7 +1,8 @@
 import inspect
 import json
 import os
-# Per la rilevazione dell'encoding dei file, utile per il tool di lettura dei file che deve gestire file con encoding sconosciuti
+# Used for file encoding detection, useful for the file-reading tool
+# which must handle files with unknown encodings
 import chardet
 
 from groq import Groq
@@ -13,29 +14,27 @@ from typing import Any, Dict, List, Tuple
 # SETUP
 # ======================
 
-# Carica le variabili d'ambiente dal file .env, in particolare la chiave API per Groq.
+# Loads environment variables from the .env file, in particular the Groq API key.
 load_dotenv()
-# Inizializza il client Groq con la chiave API ottenuta dalle variabili d'ambiente.
+
+# Initializes the Groq client using the API key from environment variables.
 client = Groq(api_key=os.environ["GROQ_API_KEY"])
 
-# Definisce i colori ANSI per differenziare visivamente i messaggi dell'utente e dell'assistente.
-YOU_COLOR = "\u001b[94m"
-# Colore giallo
-ASSISTANT_COLOR = "\u001b[93m"
-# Colore di reset per tornare al colore predefinito dopo i messaggi colorati.
-RESET_COLOR = "\u001b[0m"
+# ANSI colors to visually distinguish user and assistant messages in the terminal.
+YOU_COLOR = "\u001b[94m"        # Blue
+ASSISTANT_COLOR = "\u001b[93m"  # Yellow
+RESET_COLOR = "\u001b[0m"       # Reset to default color
 
 # ======================
 # UTILS
 # ======================
 
-# Risolve un percorso relativo in un percorso assoluto.
-# Necessario per gestire percorsi forniti dall'utente in modo coerente,
-# garantendo che tutti i percorsi usati dal tool siano assoluti.
-# Se il percorso è già assoluto, viene restituito così com'è. Se è relativo, viene risolto rispetto alla directory di lavoro corrente.
+# Resolves a relative path into an absolute path.
+# This ensures consistency when handling user-provided paths.
+# If the path is already absolute, it is returned as-is.
+# Otherwise, it is resolved relative to the current working directory.
 def resolve_abs_path(path_str: str) -> Path:
     path = Path(path_str).expanduser()
-    # Se il percorso non è assoluto, risolvi rispetto alla directory di lavoro corrente.
     if not path.is_absolute():
         path = (Path.cwd() / path).resolve()
     return path
@@ -44,9 +43,8 @@ def resolve_abs_path(path_str: str) -> Path:
 # TOOLS
 # ======================
 
-# Legge il contenuto completo di un file indicato dall'utente.
-# Serve come tool per permettere all'agente di accedere a file arbitrari
-# richiesti durante l'esecuzione di un task.
+# Reads the full content of a file provided by the user.
+# Allows the agent to access arbitrary files during task execution.
 def read_file_tool(filename: str) -> Dict[str, Any]:
     """
     Gets the full content of a file provided by the user.
@@ -57,19 +55,20 @@ def read_file_tool(filename: str) -> Dict[str, Any]:
         return {"error": "File not found or is a directory"}
 
     try:
-        # Legge il file in modalità binaria
+        # Read file in binary mode
         with open(full_path, "rb") as f:
             raw_data = f.read()
 
-        # Rileva encoding
+        # Detect encoding
         detected = chardet.detect(raw_data)
         encoding = detected["encoding"]
 
-        # Fallback se non rilevato
+        # Fallback if detection fails
         if encoding is None:
             encoding = "utf-8"
 
-        # Decodifica il contenuto del file usando l'encoding rilevato, sostituendo i caratteri non decodificabili con un placeholder
+        # Decode content using detected encoding
+        # Replace undecodable characters
         content = raw_data.decode(encoding, errors="replace")
 
     except Exception as e:
@@ -81,16 +80,14 @@ def read_file_tool(filename: str) -> Dict[str, Any]:
         "content": content
     }
 
-# Elenca i file presenti in una directory.
-# Utilizzato dal tool registry per fornire all'agente la capacità di
-# esplorare il filesystem e presentare al modello la struttura dei file.
+# Lists files in a directory.
+# Allows the agent to explore the filesystem structure.
 def list_files_tool(path: str) -> Dict[str, Any]:
     """
     Lists files in a directory.
     """
     full_path = resolve_abs_path(path)
 
-    # Se il percorso non è una directory, restituisce un errore. 
     all_files = []
     for item in full_path.iterdir():
         all_files.append({
@@ -103,21 +100,20 @@ def list_files_tool(path: str) -> Dict[str, Any]:
         "files": all_files
     }
 
-# Modifica (o crea) un file sostituendo una stringa esistente con una nuova.
-# Questo è il cuore del tool "edit_file" che permette all'agente di
-# apportare modifiche puntuali ai file del progetto.
+# Edits (or creates) a file by replacing a string with another.
+# Core tool that enables precise file modifications.
 def edit_file_tool(path: str, old_str: str, new_str: str) -> Dict[str, Any]:
     """
     Replace old_str with new_str. If old_str is empty, create file.
     """
     full_path = resolve_abs_path(path)
 
-    # Se old_str è vuota, si assume che il file debba essere creato con il contenuto di new_str. Se il file esiste già, verrà sovrascritto.
+    # If old_str is empty → create/overwrite file
     if old_str == "":
         full_path.write_text(new_str, encoding="utf-8")
         return {"path": str(full_path), "action": "created_file"}
 
-    # Se il file non esiste, restituisce un errore. Se esiste, legge il contenuto, sostituisce la prima occorrenza di old_str con new_str e riscrive il file.
+    # Read file and replace first occurrence
     original = full_path.read_text(encoding="utf-8")
 
     if original.find(old_str) == -1:
@@ -132,7 +128,7 @@ def edit_file_tool(path: str, old_str: str, new_str: str) -> Dict[str, Any]:
 # TOOL REGISTRY
 # ======================
 
-# Registra i tool disponibili in un dizionario, associando il nome del tool alla funzione che lo implementa. Questo registro è utilizzato per costruire il prompt di sistema e per eseguire i tool quando vengono invocati dall'LLM.
+# Registers available tools in a dictionary mapping tool names to functions.
 TOOL_REGISTRY = {
     "read_file": read_file_tool,
     "list_files": list_files_tool,
@@ -143,9 +139,7 @@ TOOL_REGISTRY = {
 # PROMPT
 # ======================
 
-# Genera una rappresentazione testuale di un tool (nome, descrizione, firma).
-# Utilizzata per costruire il prompt di sistema che informa il modello
-# sui tool disponibili.
+# Generates a textual representation of a tool (name, description, signature).
 def get_tool_str_representation(tool_name: str) -> str:
     tool = TOOL_REGISTRY[tool_name]
     return f"""
@@ -169,9 +163,7 @@ After tool_result(...), continue.
 If no tool needed, respond normally.
 """
 
-# Costruisce il prompt di sistema completo includendo la descrizione
-# di tutti i tool registrati. Questo prompt è inviato al modello LLM
-# all'inizio della sessione per fornire il contesto necessario.
+# Builds the full system prompt including all tool descriptions.
 def get_full_system_prompt():
     tool_str_repr = ""
     for tool_name in TOOL_REGISTRY:
@@ -184,14 +176,11 @@ def get_full_system_prompt():
 # PARSER
 # ======================
 
-# Analizza la risposta dell'LLM per estrarre le invocazioni di tool.
-# Permette al ciclo dell'agente di capire quali tool devono essere
-# eseguiti in base all'output del modello.
-# Supporta sia il formato corretto "tool: TOOL_NAME({JSON_ARGS})" che un formato alternativo JSON più flessibile.
+# Parses LLM output to extract tool invocations.
+# Supports both correct format and fallback JSON format.
 def extract_tool_invocations(text: str) -> List[Tuple[str, Dict[str, Any]]]:
     invocations = []
 
-    # Analizza ogni riga della risposta per cercare invocazioni di tool. Se una riga inizia con "tool:", tenta di estrarre il nome del tool e i suoi argomenti.
     for raw_line in text.splitlines():
         line = raw_line.strip()
 
@@ -201,7 +190,7 @@ def extract_tool_invocations(text: str) -> List[Tuple[str, Dict[str, Any]]]:
         try:
             content = line[len("tool:"):].strip()
 
-            # CASO 1: formato corretto
+            # CASE 1: correct format
             if "(" in content:
                 name, rest = content.split("(", 1)
                 if rest.endswith(")"):
@@ -209,7 +198,7 @@ def extract_tool_invocations(text: str) -> List[Tuple[str, Dict[str, Any]]]:
                     invocations.append((name.strip(), args))
                     continue
 
-            # CASO 2: formato sbagliato tipo {"function_name": ..., "args": ...}
+            # CASE 2: fallback JSON format
             parsed = json.loads(content)
 
             name = parsed.get("function_name")
@@ -239,9 +228,7 @@ def extract_tool_invocations(text: str) -> List[Tuple[str, Dict[str, Any]]]:
 # LLM CALL
 # ======================
 
-# Esegue una chiamata al modello LLM (Groq) con la conversazione corrente.
-# Restituisce la risposta testuale del modello, che può contenere
-# invocazioni di tool o messaggi di output.
+# Calls the LLM with the current conversation.
 def execute_llm_call(conversation: List[Dict[str, str]]):
     response = client.chat.completions.create(
         model="openai/gpt-oss-120b",
@@ -255,10 +242,7 @@ def execute_llm_call(conversation: List[Dict[str, str]]):
 # AGENT LOOP
 # ======================
 
-# Avvia il loop principale dell'agente di coding.
-# Gestisce l'interazione con l'utente, invoca l'LLM, interpreta le
-# invocazioni di tool e aggiorna la conversazione finché l'utente
-# non termina l'esecuzione.
+# Main loop of the coding agent.
 def run_coding_agent_loop():
     print(get_full_system_prompt())
 
