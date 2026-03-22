@@ -20,7 +20,7 @@ load_dotenv()
 # Initializes the Groq client using the API key from environment variables.
 client = Groq(api_key=os.environ["GROQ_API_KEY"])
 
-# ANSI colors to visually distinguish user and assistant messages in the terminal.
+# ANSI colors to visually distinguish user and assistant messages itestten the terminal.
 YOU_COLOR = "\u001b[94m"        # Blue
 ASSISTANT_COLOR = "\u001b[93m"  # Yellow
 RESET_COLOR = "\u001b[0m"       # Reset to default color
