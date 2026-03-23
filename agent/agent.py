@@ -1,11 +1,11 @@
 import inspect
 import json
 import os
+from pathlib import Path
+from typing import Any, Dict, List, Tuple, Callable
 
 from groq import Groq
 from dotenv import load_dotenv
-from pathlib import Path
-from typing import Any, Dict, List, Tuple
 
 # ======================
 # SETUP
@@ -15,9 +15,11 @@ load_dotenv()
 
 client = Groq(api_key=os.environ["GROQ_API_KEY"])
 
-YOU_COLOR = "\u001b[94m"
-ASSISTANT_COLOR = "\u001b[93m"
-RESET_COLOR = "\u001b[0m"
+COLORS = {
+    "user": "\u001b[94m",
+    "assistant": "\u001b[93m",
+    "reset": "\u001b[0m",
+}
 
 # ======================
 # UTILS
@@ -25,110 +27,81 @@ RESET_COLOR = "\u001b[0m"
 
 def resolve_abs_path(path_str: str) -> Path:
     path = Path(path_str).expanduser()
-    if not path.is_absolute():
-        path = (Path.cwd() / path).resolve()
-    return path
+    return path if path.is_absolute() else (Path.cwd() / path).resolve()
 
 # ======================
 # TOOLS
 # ======================
 
 def read_file_tool(filename: str) -> Dict[str, Any]:
-    """
-    Gets the full content of a file provided by the user.
-    """
-    full_path = resolve_abs_path(filename)
+    """Return full content of a file."""
+    path = resolve_abs_path(filename)
+    return {"file_path": str(path), "content": path.read_text(encoding="utf-8")}
 
-    with open(str(full_path), "r") as f:
-        content = f.read()
-
-    return {
-        "file_path": str(full_path),
-        "content": content
-    }
 
 def list_files_tool(path: str) -> Dict[str, Any]:
-    """
-    Lists files in a directory.
-    """
+    """List files in a directory."""
     full_path = resolve_abs_path(path)
 
-    all_files = []
-    for item in full_path.iterdir():
-        all_files.append({
-            "filename": item.name,
-            "type": "file" if item.is_file() else "dir"
-        })
+    files = [
+        {"filename": item.name, "type": "file" if item.is_file() else "dir"}
+        for item in full_path.iterdir()
+    ]
 
-    return {
-        "path": str(full_path),
-        "files": all_files
-    }
+    return {"path": str(full_path), "files": files}
+
 
 def edit_file_tool(path: str, old_str: str, new_str: str) -> Dict[str, Any]:
-    """
-    Replace old_str with new_str. If old_str is empty, create file.
-    """
+    """Replace old_str with new_str or create file if old_str is empty."""
     full_path = resolve_abs_path(path)
 
-    if old_str == "":
+    if not old_str:
         full_path.write_text(new_str, encoding="utf-8")
         return {"path": str(full_path), "action": "created_file"}
 
     original = full_path.read_text(encoding="utf-8")
 
-    if original.find(old_str) == -1:
-        return {"path": str(full_path), "action": "old_str not found"}
+    if old_str not in original:
+        return {"path": str(full_path), "action": "old_str_not_found"}
 
-    edited = original.replace(old_str, new_str, 1)
-    full_path.write_text(edited, encoding="utf-8")
-
+    full_path.write_text(original.replace(old_str, new_str, 1), encoding="utf-8")
     return {"path": str(full_path), "action": "edited"}
 
 # ======================
 # TOOL REGISTRY
 # ======================
 
-TOOL_REGISTRY = {
+TOOL_REGISTRY: Dict[str, Callable] = {
     "read_file": read_file_tool,
     "list_files": list_files_tool,
-    "edit_file": edit_file_tool
+    "edit_file": edit_file_tool,
 }
 
 # ======================
 # PROMPT
 # ======================
 
-def get_tool_str_representation(tool_name: str) -> str:
+def get_tool_str(tool_name: str) -> str:
     tool = TOOL_REGISTRY[tool_name]
+    return (
+        f"Name: {tool_name}\n"
+        f"Description: {tool.__doc__}\n"
+        f"Signature: {inspect.signature(tool)}\n"
+    )
+
+
+def build_system_prompt() -> str:
+    tools_repr = "\n===\n".join(get_tool_str(name) for name in TOOL_REGISTRY)
+
     return f"""
-Name: {tool_name}
-Description: {tool.__doc__}
-Signature: {inspect.signature(tool)}
-"""
+You are a coding assistant.
 
-SYSTEM_PROMPT = """
-You are a coding assistant whose goal is to solve coding tasks.
+Tools:
+{tools_repr}
 
-You have access to tools:
-
-{tool_list_repr}
-
-When you want to use a tool, reply EXACTLY like:
+Use tools like:
 tool: TOOL_NAME({{JSON_ARGS}})
-
-Use single-line JSON with double quotes.
-After tool_result(...), continue.
-If no tool needed, respond normally.
 """
-
-def get_full_system_prompt():
-    tool_str_repr = ""
-    for tool_name in TOOL_REGISTRY:
-        tool_str_repr += "TOOL\n===" + get_tool_str_representation(tool_name)
-        tool_str_repr += "\n===============\n"
-
-    return SYSTEM_PROMPT.format(tool_list_repr=tool_str_repr)
 
 # ======================
 # PARSER
@@ -137,43 +110,31 @@ def get_full_system_prompt():
 def extract_tool_invocations(text: str) -> List[Tuple[str, Dict[str, Any]]]:
     invocations = []
 
-    for raw_line in text.splitlines():
-        line = raw_line.strip()
-
+    for line in map(str.strip, text.splitlines()):
         if not line.startswith("tool:"):
             continue
 
+        content = line[5:].strip()
+
         try:
-            content = line[len("tool:"):].strip()
+            if "(" in content and content.endswith(")"):
+                name, args_str = content.split("(", 1)
+                args = json.loads(args_str[:-1])
+                invocations.append((name.strip(), args))
+                continue
 
-            # CASO 1: formato corretto
-            if "(" in content:
-                name, rest = content.split("(", 1)
-                if rest.endswith(")"):
-                    args = json.loads(rest[:-1].strip())
-                    invocations.append((name.strip(), args))
-                    continue
-
-            # CASO 2: formato sbagliato tipo {"function_name": ..., "args": ...}
             parsed = json.loads(content)
-
             name = parsed.get("function_name")
             args_list = parsed.get("args", [])
 
-            if name == "edit_file":
-                args = {
-                    "path": args_list[0],
-                    "old_str": args_list[1],
-                    "new_str": args_list[2]
-                }
-            elif name == "read_file":
-                args = {"filename": args_list[0]}
-            elif name == "list_files":
-                args = {"path": args_list[0]}
-            else:
-                continue
+            mapping = {
+                "edit_file": lambda a: {"path": a[0], "old_str": a[1], "new_str": a[2]},
+                "read_file": lambda a: {"filename": a[0]},
+                "list_files": lambda a: {"path": a[0]},
+            }
 
-            invocations.append((name, args))
+            if name in mapping:
+                invocations.append((name, mapping[name](args_list)))
 
         except Exception:
             continue
@@ -184,71 +145,59 @@ def extract_tool_invocations(text: str) -> List[Tuple[str, Dict[str, Any]]]:
 # LLM CALL
 # ======================
 
-def execute_llm_call(conversation: List[Dict[str, str]]):
-    response = client.chat.completions.create(
+def execute_llm(conversation: List[Dict[str, str]]) -> str:
+    return client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=conversation,
-        temperature=0.2
-    )
+        temperature=0.2,
+    ).choices[0].message.content
 
-    return response.choices[0].message.content
+# ======================
+# TOOL EXECUTION
+# ======================
+
+def execute_tool(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+    tool = TOOL_REGISTRY.get(name)
+    if not tool:
+        return {"error": f"Tool {name} not found"}
+
+    try:
+        return tool(**args)
+    except Exception as e:
+        return {"error": str(e)}
 
 # ======================
 # AGENT LOOP
 # ======================
 
-def run_coding_agent_loop():
-    print(get_full_system_prompt())
+def run_agent():
+    system_prompt = build_system_prompt()
+    print(system_prompt)
 
-    conversation = [{
-        "role": "system",
-        "content": get_full_system_prompt()
-    }]
+    conversation = [{"role": "system", "content": system_prompt}]
 
     while True:
         try:
-            user_input = input(f"{YOU_COLOR}You:{RESET_COLOR}:")
+            user_input = input(f"{COLORS['user']}You:{COLORS['reset']} ")
         except (KeyboardInterrupt, EOFError):
             break
 
-        conversation.append({
-            "role": "user",
-            "content": user_input.strip()
-        })
+        conversation.append({"role": "user", "content": user_input.strip()})
 
         while True:
-            assistant_response = execute_llm_call(conversation)
+            response = execute_llm(conversation)
+            tool_calls = extract_tool_invocations(response)
 
-            tool_invocations = extract_tool_invocations(assistant_response)
-
-            if not tool_invocations:
-                print(f"{ASSISTANT_COLOR}Assistant:{RESET_COLOR}: {assistant_response}")
-
-                conversation.append({
-                    "role": "assistant",
-                    "content": assistant_response
-                })
+            if not tool_calls:
+                print(f"{COLORS['assistant']}Assistant:{COLORS['reset']} {response}")
+                conversation.append({"role": "assistant", "content": response})
                 break
 
-            for name, args in tool_invocations:
-                tool = TOOL_REGISTRY[name]
-
-                if name == "read_file":
-                    resp = tool(args.get("filename", "."))
-
-                elif name == "list_files":
-                    resp = tool(args.get("path", "."))
-
-                elif name == "edit_file":
-                    resp = tool(
-                        args.get("path", "."),
-                        args.get("old_str", ""),
-                        args.get("new_str", "")
-                    )
-
+            for name, args in tool_calls:
+                result = execute_tool(name, args)
                 conversation.append({
                     "role": "user",
-                    "content": f"tool_result({json.dumps(resp)})"
+                    "content": f"tool_result({json.dumps(result)})"
                 })
 
 # ======================
@@ -256,4 +205,4 @@ def run_coding_agent_loop():
 # ======================
 
 if __name__ == "__main__":
-    run_coding_agent_loop()
+    run_agent()
