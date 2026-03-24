@@ -14,9 +14,6 @@ def run_coding_agent_loop():
     }]
 
     while True:
-        steps = 0
-        max_steps = 5
-
         try:
             user_input = input(f"{YOU_COLOR}You:{RESET_COLOR}:")
         except (KeyboardInterrupt, EOFError):
@@ -28,11 +25,6 @@ def run_coding_agent_loop():
         })
 
         while True:
-            steps += 1
-            if steps > max_steps:
-                print("Stopping: too many steps")
-                break
-
             assistant_response = execute_llm_call(conversation)
 
             tool_invocations = extract_tool_invocations(assistant_response)
@@ -63,6 +55,7 @@ def run_coding_agent_loop():
                     )
 
                 conversation.append({
-                    "role": "user",
-                    "content": f"tool_result({json.dumps(resp)})"
+                    "role": "assistant",
+                    "content": f"Tool result: {json.dumps(resp)}"
                 })
+                break
