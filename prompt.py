@@ -20,7 +20,7 @@ def get_tool_str_representation(tool_name: str) -> str:
     tool = TOOL_REGISTRY[tool_name]
     return f"""
 Name: {tool_name}
-Description: {tool.__doc__}
+Description: {tool.__doc__.strip().replace('\n', ' ')}
 Signature: {inspect.signature(tool)}
 """
 

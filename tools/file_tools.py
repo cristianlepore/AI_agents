@@ -3,6 +3,9 @@ from typing import Any, Dict
 from utils import resolve_abs_path
 
 def read_file_tool(filename: str) -> Dict[str, Any]:
+    """
+    Gets the full content of a file provided by the user.
+    """
     full_path = resolve_abs_path(filename)
 
     if not full_path.is_file():
@@ -28,6 +31,9 @@ def read_file_tool(filename: str) -> Dict[str, Any]:
 
 
 def list_files_tool(path: str) -> Dict[str, Any]:
+    """
+    Lists files in a directory.
+    """
     full_path = resolve_abs_path(path)
 
     all_files = []
@@ -41,6 +47,9 @@ def list_files_tool(path: str) -> Dict[str, Any]:
 
 
 def edit_file_tool(path: str, old_str: str, new_str: str) -> Dict[str, Any]:
+    """
+    Replace old_str with new_str. If old_str is empty, create file.
+    """
     full_path = resolve_abs_path(path)
 
     if old_str == "":
