@@ -222,7 +222,7 @@ Done ✅ (automatically included in the prompt)
 
 ## 📄 License
 
-MIT (or specify your own)
+Cristian Lepore
 
 ---
 
