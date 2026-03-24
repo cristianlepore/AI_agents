@@ -13,6 +13,7 @@ def extract_tool_invocations(text: str) -> List[Tuple[str, Dict[str, Any]]]:
         try:
             content = line[len("tool:"):].strip()
 
+            # CASE 1: correct format
             if "(" in content:
                 name, rest = content.split("(", 1)
                 if rest.endswith(")"):
@@ -20,6 +21,7 @@ def extract_tool_invocations(text: str) -> List[Tuple[str, Dict[str, Any]]]:
                     invocations.append((name.strip(), args))
                     continue
 
+            # CASE 2: fallback JSON format
             parsed = json.loads(content)
 
             name = parsed.get("function_name")

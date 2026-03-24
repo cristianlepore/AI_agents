@@ -6,7 +6,7 @@ from llm import execute_llm_call
 from tools.registry import TOOL_REGISTRY
 
 def run_coding_agent_loop():
-    print(get_full_system_prompt())
+    print("Hi, I am your personal coding assistant. What can I do for you?")
 
     conversation = [{
         "role": "system",
@@ -14,6 +14,9 @@ def run_coding_agent_loop():
     }]
 
     while True:
+        steps = 0
+        max_steps = 5
+
         try:
             user_input = input(f"{YOU_COLOR}You:{RESET_COLOR}:")
         except (KeyboardInterrupt, EOFError):
@@ -25,6 +28,11 @@ def run_coding_agent_loop():
         })
 
         while True:
+            steps += 1
+            if steps > max_steps:
+                print("Stopping: too many steps")
+                break
+
             assistant_response = execute_llm_call(conversation)
 
             tool_invocations = extract_tool_invocations(assistant_response)

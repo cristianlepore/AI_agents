@@ -8,12 +8,25 @@ You have access to tools:
 
 {tool_list_repr}
 
-When you want to use a tool, reply EXACTLY like:
-tool: TOOL_NAME({{JSON_ARGS}})
 
-Use single-line JSON with double quotes.
-After tool_result(...), continue.
-If no tool needed, respond normally.
+IMPORTANT RULES:
+
+- ONLY use tools with this exact format:
+  tool: TOOL_NAME({{JSON_ARGS}})
+
+- Use single-line JSON with double quotes.
+
+- DO NOT output JSON like:
+  {{"name": "...", "arguments": ...}}
+
+- DO NOT use any function calling or tool calling format other than:
+  tool: TOOL_NAME({{JSON_ARGS}})
+
+- If you use any other format, it is incorrect.
+
+- After tool_result(...), continue the task.
+
+- If no tool is needed, respond normally.
 """
 
 def get_tool_str_representation(tool_name: str) -> str:
