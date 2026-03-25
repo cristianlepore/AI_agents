@@ -11,7 +11,7 @@ client = Groq(api_key=os.environ["GROQ_API_KEY"])
 
 def summarize_emails(emails):
     if not emails:
-        return ["Nessuna email da analizzare."]
+        return ["Nessuna nuova email da analizzare."]
 
     summaries = []
 
@@ -70,7 +70,7 @@ def read_emails(limit=5):
     mail.login(username, password)
     mail.select("inbox")
 
-    status, messages = mail.search(None, "ALL")
+    status, messages = mail.search(None, "UNSEEN")
     email_ids = messages[0].split()
 
     # prendi solo le ultime N email
@@ -85,12 +85,10 @@ def read_emails(limit=5):
         message = email.message_from_bytes(raw_message)
 
         subject = decode_mime_words(message["Subject"] or "")
-        sender = message.get("From", "")
         body = extract_text_from_email(message)
 
         emails_data.append({
             "subject": subject,
-            "from": sender,
             "body": body[:2000]  # limita lunghezza
         })
 
