@@ -20,7 +20,6 @@ def summarize_emails(emails):
 Riassumi questa email in modo conciso in uan frase.
 
 EMAIL:
-From: {e['from']}
 Subject: {e['subject']}
 Body: {e['body'][:1000]}
 
