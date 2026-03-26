@@ -29,9 +29,9 @@ OUTPUT:
 """
 
         response = client.chat.completions.create(
-            model="openai/gpt-oss-120b",
+            model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.2
+            temperature=0
         )
 
         summaries.append(response.choices[0].message.content)
