@@ -33,7 +33,7 @@ def run_cli():
     if args.command in (None, "fetch", "summarize"):
         emails = read_emails(limit=getattr(args, "limit", 10), provider=getattr(args, "provider", "both"), mark_seen=getattr(args, "mark_seen", False))
         if not emails:
-            print("Nessuna email non letta.")
+            print("Nessuna nuova email.")
             return
 
         if args.command == "fetch":
