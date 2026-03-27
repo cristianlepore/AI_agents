@@ -29,6 +29,57 @@ def summarize_email(subject: str, body: str) -> str:
     return response.choices[0].message.content
 
 
+def _build_reply_prompt(subject: str, body: str, action: str) -> str:
+    return f"""
+Stendi una bozza di risposta formale, chiara e breve in italiano all'email seguente.
+Includi i punti essenziali per soddisfare l'azione richiesta.
+
+EMAIL:
+Subject: {subject}
+Body: {body[:1000]}
+AZIONE:
+{action}
+
+RISPOSTA:
+"""
+
+
+def _extract_action(summary: str) -> str:
+    """Estrae la sezione azione dal riassunto prodotto."""
+    if not summary:
+        return ""
+    lower = summary.lower()
+    if "nessuna" in lower and "azione" in lower:
+        return ""
+
+    # cerca il secondo bullet o frase dopo "eventuali azioni richieste"
+    lines = [line.strip(" -") for line in summary.splitlines() if line.strip()]
+    for line in lines:
+        if "azione" in line.lower() or "richiesta" in line.lower():
+            if "nessuna" in line.lower():
+                return ""
+            return line
+    # fallback: se la summary lunga contiene parole chiave, lo usa
+    if "contattare" in lower or "rispondere" in lower or "seguire" in lower:
+        return summary
+    return ""
+
+
+def generate_reply_draft(subject: str, body: str, summary: str) -> str:
+    """Genera una bozza risposta se è stata individuata un'azione richiesta."""
+    action = _extract_action(summary)
+    if not action:
+        return ""
+
+    prompt = _build_reply_prompt(subject, body, action)
+    response = groq_client.chat.completions.create(
+        model=GROQ_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.2
+    )
+    return response.choices[0].message.content.strip()
+
+
 def summarize_emails(emails: list[dict]) -> list[str]:
     """
     Riassume una lista di email.

@@ -2,12 +2,26 @@ import logging
 import re
 import smtplib
 from email.message import EmailMessage
+from email.utils import parseaddr
 from config import MAIL_SERVER, GMAIL_USERNAME, GMAIL_APP, MURENA_SERVER, MURENA_USERNAME, MURENA_APP
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _normalize_email(addr: str) -> str:
+    """Estrae l'indirizzo da un formato name <email> o email puro."""
+    if not addr or not addr.strip():
+        raise ValueError(f"Indirizzo email non valido: {addr}")
+    realname, email_addr = parseaddr(addr)
+    email_addr = email_addr.strip()
+    if not email_addr:
+        raise ValueError(f"Indirizzo email non valido: {addr}")
+    if not EMAIL_REGEX.match(email_addr):
+        raise ValueError(f"Indirizzo email non valido: {addr}")
+    return email_addr
 
 
 def _smtp_credentials(provider: str):
@@ -26,12 +40,12 @@ def _validate_email(address: str) -> None:
 
 def send_email(to_address: str, subject: str, body: str, provider: str = "gmail", reply_to: str | None = None, in_reply_to: str | None = None) -> str:
     """Invia un email (o una risposta) tramite SMTP del provider selezionato."""
-    _validate_email(to_address)
+    to_address = _normalize_email(to_address)
     if reply_to:
-        _validate_email(reply_to)
+        reply_to = _normalize_email(reply_to)
 
     server, port, username, password = _smtp_credentials(provider)
-    _validate_email(username)
+    username = _normalize_email(username)
 
     msg = EmailMessage()
     msg["From"] = username

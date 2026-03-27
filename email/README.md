@@ -57,3 +57,16 @@ python3 main.py reply --to destinatario@example.com --subject "Re: Oggetto" --bo
 - Per test locale, usa account di test e app password.
 - Su Gmail, attiva IMAP e crea una app password se hai 2FA.
 - `mark-seen` è opzionale, lascia le email non lette se non passato.
+
+## 6) Preparazione risposta automatica su azione richiesta
+
+- Usa `--prepare-reply` con `summarize` per generare bozza risposta quando l'email presenta azioni richieste.
+- Usa `--auto-send` con attenzione per inviare direttamente la bozza creata (solo se confidi nella logica e nei destinatari):
+
+```bash
+python3 main.py summarize --limit 5 --provider both --prepare-reply
+python3 main.py summarize --limit 5 --provider both --prepare-reply --auto-send
+```
+
+- La bozza viene generata con LLM Groq usando `generate_reply_draft` di `email_summarizer.py`. Sarà inviata con `send_email` a `from` dell'email originale e con `Re:` nell'oggetto.
+

@@ -2,7 +2,7 @@ import argparse
 import sys
 from email_reader import read_emails
 from email_sender import send_email
-from email_summarizer import summarize_emails
+from email_summarizer import summarize_emails, generate_reply_draft
 from mcp_tools import mcp
 
 
@@ -16,7 +16,9 @@ def run_cli():
     fetch_parser.add_argument("--provider", choices=["gmail", "murena", "both"], default="both")
     fetch_parser.add_argument("--mark-seen", action="store_true", help="Segna email come lette")
 
-    subparsers.add_parser("summarize", help="Riassume le email non lette")
+    summarize_parser = subparsers.add_parser("summarize", help="Riassume le email non lette")
+    summarize_parser.add_argument("--prepare-reply", action="store_true", help="Genera bozza di risposta quando c'è un'azione richiesta")
+    summarize_parser.add_argument("--auto-send", action="store_true", help="(ATTENZIONE) Invia automaticamente le risposte generate")
 
     reply_parser = subparsers.add_parser("reply", help="Invia una risposta tramite SMTP")
     reply_parser.add_argument("--to", required=True, help="Destinatario")
@@ -44,11 +46,39 @@ def run_cli():
             return
 
         summaries = summarize_emails(emails)
+        prepare = getattr(args, "prepare_reply", False)
+        auto_send = getattr(args, "auto_send", False)
+
         for e, s in zip(emails, summaries):
             print("-----")
             print(f"Provider: {e['provider'].upper()}")
+            print(f"Da: {e.get('from', '')}")
             print(f"Oggetto: {e['subject']}")
-            print(s)
+            print("Riassunto:", s)
+
+            if not prepare:
+                continue
+
+            draft = generate_reply_draft(e["subject"], e["body"], s)
+            if not draft:
+                print("Suggerimento: non è necessario rispondere (nessuna azione individuata).")
+                continue
+
+            print("Suggerimento: è consigliato rispondere con questa bozza:")
+            print(draft)
+
+            if auto_send:
+                try:
+                    sent = send_email(
+                        to_address=e.get("from", ""),
+                        subject=f"Re: {e['subject']}",
+                        body=draft,
+                        provider=e["provider"].lower(),
+                        in_reply_to=e.get("message_id", None),
+                    )
+                    print("Invio automatico effettuato:", sent)
+                except Exception as exc:
+                    print("Errore invio automatico:", exc)
 
     elif args.command == "reply":
         result = send_email(
