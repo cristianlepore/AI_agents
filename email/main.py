@@ -6,7 +6,7 @@ from mcp_tools import mcp
 
 def run_cli():
     """Modalità CLI: legge e stampa i riassunti delle email non lette."""
-    emails = read_emails(5)
+    emails = read_emails(limit=10, provider="both")
     if not emails:
         print("Nessuna email non letta.")
         return
