@@ -30,7 +30,7 @@ def extract_text_from_email(message) -> str:
     return ""
 
 
-def read_emails(limit: int = 5, provider: str = "both") -> list[dict]:
+def read_emails(limit: int = 5, provider: str = "both", mark_seen: bool = False) -> list[dict]:
     """
     Legge le ultime `limit` email non lette dalla inbox del provider.
     Restituisce una lista di dict con chiavi 'subject', 'body', 'provider'.
@@ -48,10 +48,16 @@ def read_emails(limit: int = 5, provider: str = "both") -> list[dict]:
             raw_message = msg[0][1]
             message = email.message_from_bytes(raw_message)
             subject = decode_mime_words(message["Subject"] or "")
+            sender = decode_mime_words(message.get("From", ""))
+            message_id = message.get("Message-ID", "")
             body = extract_text_from_email(message)
+            if mark_seen:
+                mail.store(num, "+FLAGS", "\\Seen")
             emails_data.append({
                 "subject": subject,
                 "body": body[:2000],
+                "from": sender,
+                "message_id": message_id,
                 "provider": "GMAIL"
             })
         mail.close()
@@ -70,10 +76,16 @@ def read_emails(limit: int = 5, provider: str = "both") -> list[dict]:
             raw_message = msg[0][1]
             message = email.message_from_bytes(raw_message)
             subject = decode_mime_words(message["Subject"] or "")
+            sender = decode_mime_words(message.get("From", ""))
+            message_id = message.get("Message-ID", "")
             body = extract_text_from_email(message)
+            if mark_seen:
+                mail.store(num, "+FLAGS", "\\Seen")
             emails_data.append({
                 "subject": subject,
                 "body": body[:2000],
+                "from": sender,
+                "message_id": message_id,
                 "provider": "MURENA"
             })
         mail.close()

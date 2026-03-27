@@ -2,6 +2,7 @@ import json
 from mcp.server.fastmcp import FastMCP
 from email_reader import read_emails
 from email_summarizer import summarize_emails
+from email_sender import send_email
 
 mcp = FastMCP("agent")
 
@@ -23,6 +24,31 @@ def fetch_and_summarize(limit: int = 10) -> str:
         for e, s in zip(emails, summaries)
     ]
     return json.dumps(result, ensure_ascii=False)
+
+
+@mcp.tool()
+def send_email_tool(to_address: str, subject: str, body: str, provider: str = "gmail", reply_to: str = None, in_reply_to: str = None) -> str:
+    """Invia un'email usando il provider definito (gmail/murena)."""
+    return send_email(
+        to_address=to_address,
+        subject=subject,
+        body=body,
+        provider=provider,
+        reply_to=reply_to,
+        in_reply_to=in_reply_to,
+    )
+
+
+@mcp.tool()
+def reply_email_tool(original_message_id: str, to_address: str, subject: str, body: str, provider: str = "gmail") -> str:
+    """Invia una risposta email impostando correttamente In-Reply-To/References."""
+    return send_email(
+        to_address=to_address,
+        subject=subject,
+        body=body,
+        provider=provider,
+        in_reply_to=original_message_id,
+    )
 
 
 @mcp.tool()
