@@ -13,6 +13,7 @@ def run_cli():
     summaries = summarize_emails(emails)
     for e, s in zip(emails, summaries):
         print("-----")
+        print(f"Provider: {e['provider'].upper()}")
         print(f"Oggetto: {e['subject']}")
         print(s)
 

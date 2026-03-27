@@ -33,7 +33,7 @@ def extract_text_from_email(message) -> str:
 def read_emails(limit: int = 5, provider: str = "both") -> list[dict]:
     """
     Legge le ultime `limit` email non lette dalla inbox del provider.
-    Restituisce una lista di dict con chiavi 'subject' e 'body'.
+    Restituisce una lista di dict con chiavi 'subject', 'body', 'provider'.
     """
     if provider == "gmail":
         mail = imaplib.IMAP4_SSL(MAIL_SERVER)
@@ -51,7 +51,8 @@ def read_emails(limit: int = 5, provider: str = "both") -> list[dict]:
             body = extract_text_from_email(message)
             emails_data.append({
                 "subject": subject,
-                "body": body[:2000]
+                "body": body[:2000],
+                "provider": "GMAIL"
             })
         mail.close()
         mail.logout()
@@ -72,7 +73,8 @@ def read_emails(limit: int = 5, provider: str = "both") -> list[dict]:
             body = extract_text_from_email(message)
             emails_data.append({
                 "subject": subject,
-                "body": body[:2000]
+                "body": body[:2000],
+                "provider": "MURENA"
             })
         mail.close()
         mail.logout()
