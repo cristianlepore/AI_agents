@@ -39,7 +39,7 @@ def read_emails(limit: int = 5, provider: str = "both") -> list[dict]:
         mail = imaplib.IMAP4_SSL(MAIL_SERVER)
         mail.login(GMAIL_USERNAME, GMAIL_APP)
         mail.select("inbox")
-        _, messages = mail.search(None, "UNSEEN")
+        _, messages = mail.search(None, "ALL")
         email_ids = messages[0].split()
         latest_ids = email_ids[-limit:]
         emails_data = []
@@ -60,7 +60,7 @@ def read_emails(limit: int = 5, provider: str = "both") -> list[dict]:
         mail = imaplib.IMAP4_SSL(MURENA_SERVER, IMAP_PORT)
         mail.login(MURENA_USERNAME, MURENA_APP)
         mail.select("inbox")
-        _, messages = mail.search(None, "UNSEEN")
+        _, messages = mail.search(None, "ALL")
         email_ids = messages[0].split()
         latest_ids = email_ids[-limit:]
         emails_data = []

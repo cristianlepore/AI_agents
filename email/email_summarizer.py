@@ -1,3 +1,8 @@
+import logging
+
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+
 from config import groq_client, GROQ_MODEL
 
 

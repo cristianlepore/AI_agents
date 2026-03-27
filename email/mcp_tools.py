@@ -3,7 +3,7 @@ from mcp.server.fastmcp import FastMCP
 from email_reader import read_emails
 from email_summarizer import summarize_emails
 
-mcp = FastMCP("gmail-agent")
+mcp = FastMCP("agent")
 
 
 @mcp.tool()
