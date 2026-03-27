@@ -70,3 +70,14 @@ python3 main.py summarize --limit 5 --provider both --prepare-reply --auto-send
 
 - La bozza viene generata con LLM Groq usando `generate_reply_draft` di `email_summarizer.py`. Sarà inviata con `send_email` a `from` dell'email originale e con `Re:` nell'oggetto.
 
+## 7) Decisione "leggi → suggerisci → invia"
+
+- Quando usi `python3 main.py summarize --prepare-reply`, il sistema:
+  1. legge le email non lette
+  2. genera riassunto e individua l'azione richiesta
+  3. suggerisce bozza di risposta solo per email con azione presente
+
+- Se passi `--auto-send`, invia automaticamente le risposte suggerite in un ciclo.
+- Se non c’è alcuna azione, stampa: `Suggerimento: non è necessario rispondere`.
+
+

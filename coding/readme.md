@@ -115,6 +115,29 @@ The agent will:
 
 ---
 
+## 📧 Email Module (Agentic/email)
+
+La directory `email/` contiene un modulo completo per:
+
+- leggere email non lette (IMAP Google/Murena)
+- riassumere contenuti con LLM (Groq)
+- suggerire risposte automatiche (`--prepare-reply`)
+- inviare risposta via SMTP (`--auto-send` o comando manuale)
+
+### Quick start email
+
+```bash
+cd email
+python3 main.py fetch --limit 5 --provider gmail --mark-seen
+python3 main.py summarize --limit 5 --provider both --prepare-reply
+python3 main.py summarize --limit 5 --provider both --prepare-reply --auto-send
+python3 main.py reply --to destinatario@example.com --subject "Ciao" --body "Test" --provider gmail
+```
+
+Vedi `email/README.md` per dettagli su configurazione, env variables e sicurezza.
+
+---
+
 ## 🛠️ Available Tools
 
 ### 📄 `read_file`
