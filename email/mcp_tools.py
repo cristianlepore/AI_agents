@@ -8,22 +8,30 @@ mcp = FastMCP("agent")
 
 
 @mcp.tool()
-def fetch_emails(limit: int = 10) -> str:
-    """Legge le ultime N email non lette dalla inbox Gmail."""
-    emails = read_emails(limit)
-    return json.dumps(emails, ensure_ascii=False)
+def fetch_emails(limit: int = 10, provider: str = "both", mark_seen: bool = False) -> str:
+    """Legge le ultime N email non lette dalla inbox del provider scelto."""
+    try:
+        emails = read_emails(limit, provider=provider, mark_seen=mark_seen)
+        return json.dumps(emails, ensure_ascii=False)
+    except Exception as exc:
+        return json.dumps({"error": str(exc)}, ensure_ascii=False)
 
 
 @mcp.tool()
-def fetch_and_summarize(limit: int = 10) -> str:
+def fetch_and_summarize(limit: int = 10, provider: str = "both", mark_seen: bool = False) -> str:
     """Recupera le ultime N email non lette e le riassume in un unico passaggio."""
-    emails = read_emails(limit)
-    summaries = summarize_emails(emails)
-    result = [
-        {"subject": e["subject"], "summary": s}
-        for e, s in zip(emails, summaries)
-    ]
-    return json.dumps(result, ensure_ascii=False)
+    try:
+        emails = read_emails(limit, provider=provider, mark_seen=mark_seen)
+        if not emails:
+            return json.dumps([], ensure_ascii=False)
+        summaries = summarize_emails(emails)
+        result = [
+            {"subject": e["subject"], "summary": s}
+            for e, s in zip(emails, summaries)
+        ]
+        return json.dumps(result, ensure_ascii=False)
+    except Exception as exc:
+        return json.dumps({"error": str(exc)}, ensure_ascii=False)
 
 
 @mcp.tool()

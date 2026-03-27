@@ -30,70 +30,67 @@ def extract_text_from_email(message) -> str:
     return ""
 
 
+def _fetch_emails(mail, limit: int, mark_seen: bool, provider: str) -> list[dict]:
+    _, messages = mail.search(None, "ALL")
+    email_ids = messages[0].split() if messages and messages[0] else []
+    latest_ids = email_ids[-limit:]
+
+    emails_data = []
+    for num in latest_ids:
+        _, msg = mail.fetch(num, "(RFC822)")
+        raw_message = msg[0][1]
+        message = email.message_from_bytes(raw_message)
+
+        emails_data.append({
+            "subject": decode_mime_words(message.get("Subject", "") or ""),
+            "body": extract_text_from_email(message)[:2000],
+            "from": decode_mime_words(message.get("From", "") or ""),
+            "message_id": message.get("Message-ID", ""),
+            "provider": provider,
+        })
+
+        if mark_seen:
+            mail.store(num, "+FLAGS", "\\Seen")
+
+    return emails_data
+
+
+def _open_mailbox(host: str, port: int | None, username: str, password: str):
+    if port is None:
+        return imaplib.IMAP4_SSL(host)
+    return imaplib.IMAP4_SSL(host, port)
+
+
+def _read_provider_emails(limit: int, provider: str, mark_seen: bool) -> list[dict]:
+    if provider == "gmail":
+        mail = _open_mailbox(MAIL_SERVER, None, GMAIL_USERNAME, GMAIL_APP)
+        provider_name = "GMAIL"
+        username, password = GMAIL_USERNAME, GMAIL_APP
+    elif provider == "murena":
+        mail = _open_mailbox(MURENA_SERVER, IMAP_PORT, MURENA_USERNAME, MURENA_APP)
+        provider_name = "MURENA"
+        username, password = MURENA_USERNAME, MURENA_APP
+    else:
+        raise ValueError("Invalid provider")
+
+    mail.login(username, password)
+    mail.select("inbox")
+    try:
+        return _fetch_emails(mail, limit, mark_seen, provider_name)
+    finally:
+        try:
+            mail.close()
+        except Exception:
+            pass
+        mail.logout()
+
+
 def read_emails(limit: int = 5, provider: str = "both", mark_seen: bool = False) -> list[dict]:
     """
     Legge le ultime `limit` email non lette dalla inbox del provider.
     Restituisce una lista di dict con chiavi 'subject', 'body', 'provider'.
     """
-    if provider == "gmail":
-        mail = imaplib.IMAP4_SSL(MAIL_SERVER)
-        mail.login(GMAIL_USERNAME, GMAIL_APP)
-        mail.select("inbox")
-        _, messages = mail.search(None, "ALL")
-        email_ids = messages[0].split()
-        latest_ids = email_ids[-limit:]
-        emails_data = []
-        for num in latest_ids:
-            _, msg = mail.fetch(num, "(RFC822)")
-            raw_message = msg[0][1]
-            message = email.message_from_bytes(raw_message)
-            subject = decode_mime_words(message["Subject"] or "")
-            sender = decode_mime_words(message.get("From", ""))
-            message_id = message.get("Message-ID", "")
-            body = extract_text_from_email(message)
-            if mark_seen:
-                mail.store(num, "+FLAGS", "\\Seen")
-            emails_data.append({
-                "subject": subject,
-                "body": body[:2000],
-                "from": sender,
-                "message_id": message_id,
-                "provider": "GMAIL"
-            })
-        mail.close()
-        mail.logout()
-        return emails_data
-    elif provider == "murena":
-        mail = imaplib.IMAP4_SSL(MURENA_SERVER, IMAP_PORT)
-        mail.login(MURENA_USERNAME, MURENA_APP)
-        mail.select("inbox")
-        _, messages = mail.search(None, "ALL")
-        email_ids = messages[0].split()
-        latest_ids = email_ids[-limit:]
-        emails_data = []
-        for num in latest_ids:
-            _, msg = mail.fetch(num, "(RFC822)")
-            raw_message = msg[0][1]
-            message = email.message_from_bytes(raw_message)
-            subject = decode_mime_words(message["Subject"] or "")
-            sender = decode_mime_words(message.get("From", ""))
-            message_id = message.get("Message-ID", "")
-            body = extract_text_from_email(message)
-            if mark_seen:
-                mail.store(num, "+FLAGS", "\\Seen")
-            emails_data.append({
-                "subject": subject,
-                "body": body[:2000],
-                "from": sender,
-                "message_id": message_id,
-                "provider": "MURENA"
-            })
-        mail.close()
-        mail.logout()
-        return emails_data
-    elif provider == "both":
-        emails_gmail = read_emails(limit, provider="gmail")
-        emails_murena = read_emails(limit, provider="murena")
-        return emails_gmail + emails_murena
-    else:
-        raise ValueError("Invalid provider")
+    if provider == "both":
+        return _read_provider_emails(limit, "gmail", mark_seen) + _read_provider_emails(limit, "murena", mark_seen)
+
+    return _read_provider_emails(limit, provider, mark_seen)
