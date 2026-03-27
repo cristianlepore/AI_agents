@@ -83,12 +83,3 @@ def read_emails(limit: int = 5, provider: str = "both") -> list[dict]:
         return emails_gmail + emails_murena
     else:
         raise ValueError("Invalid provider")
-
-
-def main():
-    emails = read_emails(limit=10, provider="both")
-    print("Emails:", emails)
-
-
-if __name__ == "__main__":
-    main()
