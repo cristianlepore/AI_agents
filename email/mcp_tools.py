@@ -7,14 +7,14 @@ mcp = FastMCP("gmail-agent")
 
 
 @mcp.tool()
-def fetch_emails(limit: int = 5) -> str:
+def fetch_emails(limit: int = 10) -> str:
     """Legge le ultime N email non lette dalla inbox Gmail."""
     emails = read_emails(limit)
     return json.dumps(emails, ensure_ascii=False)
 
 
 @mcp.tool()
-def fetch_and_summarize(limit: int = 5) -> str:
+def fetch_and_summarize(limit: int = 10) -> str:
     """Recupera le ultime N email non lette e le riassume in un unico passaggio."""
     emails = read_emails(limit)
     summaries = summarize_emails(emails)

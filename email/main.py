@@ -23,7 +23,7 @@ def run_server():
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == "server":
+    if len(sys.argv) > 1 and sys.argv[1] == "agent":
         run_server()
     else:
         run_cli()
