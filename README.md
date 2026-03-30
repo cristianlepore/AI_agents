@@ -1,52 +1,48 @@
-# Agentic
+# Project Overview
 
-Progetto di agent basato su LLM con strumenti (tool) per gestione file e email.
+This repository contains two distinct sub‑projects, each located in its own folder:
 
-## Struttura del repository
+## 📧 **email**  
+The **email** project provides tools for working with email messages.  
+Key components include:
 
-- `coding/`: agente principale di coding e tool generici per file
-- `email/`: modulo di gestione email (IMAP/SMTP), riassunto e invio attraverso strumenti MCP
-- `.env`: variabili d'ambiente critiche (API key, credenziali email)
-- `requirements.txt`: dipendenze Python
+- **`email_reader.py`** – Reads and parses incoming emails.  
+- **`email_sender.py`** – Sends emails via SMTP with optional attachments.  
+- **`email_summarizer.py`** – Generates concise summaries of email content using LLMs.  
+- **`config.py`** – Central configuration (SMTP settings, credentials, etc.).  
+- **`main.py`** – Example entry point that ties the utilities together.  
 
-## 1) Setup
+The folder also contains a **`README.md`** with detailed usage instructions for the email utilities.
 
-1. Crea virtualenv e attivalo
+## 💻 **coding**  
+The **coding** project is a small AI‑assisted coding assistant.  
+Main modules:
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
+- **`agent.py`** – Core agent logic that orchestrates LLM interactions.  
+- **`llm.py`** – Wrapper around the language model API.  
+- **`parser.py`** – Parses code snippets and extracts relevant information.  
+- **`prompt.py`** – Templates for prompts sent to the LLM.  
+- **`utils.py`** – Helper functions used across the project.  
+- **`config.py`** – Configuration for model selection, API keys, etc.  
+- **`main.py`** – CLI entry point to run the coding assistant.  
 
-2. Installa le dipendenze
+A dedicated **`README.md`** inside the `coding/` folder provides further details on setup and usage.
 
-```bash
-pip install -r requirements.txt
-```
+---
 
-3. Configura variabili d'ambiente in `.env`:
+### How to get started
 
-- `GROQ_API_KEY` (Groq API key)
-- `MAIL_SERVER`, `GMAIL_USERNAME`, `GMAIL_APP`, `MURENA_SERVER`, `MURENA_USERNAME`, `MURENA_APP`, `IMAP_PORT`
+1. **Install dependencies**  
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-## 2) Uso modulo email
+2. **Explore each sub‑project**  
+   - For email utilities, read `email/README.md` and run `python email/main.py`.  
+   - For the coding assistant, read `coding/readme.md` and run `python coding/main.py`.
 
-```bash
-cd email
-python3 main.py fetch --limit 5 --provider gmail --mark-seen
-python3 main.py summarize --limit 5 --provider both --prepare-reply
-python3 main.py summarize --limit 5 --provider both --prepare-reply --auto-send
-python3 main.py reply --to destinatario@example.com --subject "Ciao" --body "Test" --provider gmail
-```
+Feel free to explore, modify, and extend the tools to fit your workflow.
 
-## 3) Avvio server agent (MCP)
+---
 
-```bash
-python3 email/main.py agent
-```
-
-## 4) Note
-
-- `email/readme.md` contiene dettagli su variabili d'ambiente e comandi email.
-- `coding/readme.md` descrive il modulo di coding agent.
-- Per sicurezza, usa account di test e app password per SMTP/IMAP.
+*Repository root README generated automatically.*
