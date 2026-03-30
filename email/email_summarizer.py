@@ -8,7 +8,7 @@ from config import groq_client, GROQ_MODEL
 
 def _build_prompt(subject: str, body: str) -> str:
     return f"""
-Riassumi questa email in modo conciso in una frase.
+Riassumi questa email in modo conciso in circa 20 parole. Solo se lo ritieni necessario, puoi andare oltre le 20 parole per includere dettagli importanti.
 EMAIL:
 Subject: {subject}
 Body: {body[:1000]}
